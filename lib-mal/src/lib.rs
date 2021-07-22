@@ -6,8 +6,9 @@ use directories::{self, ProjectDirs};
 use pkce;
 use rand::{self, random};
 use reqwest::Method;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fs::{self, File},
     io::Write,
     path::Path,
@@ -18,7 +19,8 @@ use tiny_http::{Response, Server};
 pub struct MALClient {
     client_secret: String,
     dirs: ProjectDirs,
-    need_auth: bool,
+    access_token: Option<Box<String>>,
+    pub need_auth: bool,
 }
 
 impl MALClient {
@@ -40,12 +42,25 @@ impl MALClient {
         } else {
             panic!("Unable to locate application directory");
         };
+        let mut token = None;
+        if dir.cache_dir().join("access_token.tok").exists() {
+            if let Ok(tok) = fs::read_to_string(dir.cache_dir().join("access_token.tok")) {
+                token = Some(Box::new(tok));
+            } else {
+                token = None;
+            }
+        } else {
+            n_a = true;
+        }
 
-        MALClient {
+        let me = MALClient {
             client_secret: secret.to_owned(),
             dirs: dir,
             need_auth: n_a,
-        }
+            access_token: token,
+        };
+
+        me
     }
 
     pub fn get_auth_parts(&self) -> (String, String) {
@@ -113,6 +128,37 @@ impl MALClient {
                 .expect("Unable to write refresh token");
         }
     }
+
+    pub async fn get_anime_list(&self) -> Result<String, String> {
+        let client = reqwest::Client::new();
+        match client
+            .get("https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=4")
+            .bearer_auth(self.access_token.as_ref().unwrap())
+            .send()
+            .await
+        {
+            Ok(res) => Ok(serde_json::from_str(&res.text().await.unwrap()).expect("Unable to parse response")),
+            Err(e) => Err(format!("{}", e)),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AnimeList {
+    data:  Vec<ListNode>,
+    paging: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ListNode{
+    node: Vec<Show>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Show{
+    id: i32,
+    title: String,
+    rest: HashMap<String, String>
 }
 
 #[derive(Deserialize, Debug)]
