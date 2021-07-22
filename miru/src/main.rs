@@ -18,7 +18,7 @@ async fn main() {
         println!("Logged in successfully!");
     }
     let list = client
-        .get_anime_details(&80, Some(vec!["title, alternative_titles"]))
+        .get_anime_details(&80, None)
         .await
         .expect("Couldn't get anime list");
     println!("{}", list.alternative_titles.unwrap().synonyms[0]);
