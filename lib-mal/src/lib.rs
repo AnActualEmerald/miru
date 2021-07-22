@@ -1,30 +1,33 @@
 #[cfg(test)]
 mod test;
 
-use crypto::{digest::Digest, sha3::*};
+pub mod model;
+
+use model::AnimeList;
+
 use directories::{self, ProjectDirs};
 use pkce;
-use rand::{self, random};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
     fs::{self, File},
     io::Write,
-    path::Path,
     str,
+    time::SystemTime,
 };
 use tiny_http::{Response, Server};
 
 pub struct MALClient {
     client_secret: String,
     dirs: ProjectDirs,
-    access_token: Option<Box<String>>,
+    access_token: String,
+    client: reqwest::Client,
     pub need_auth: bool,
 }
 
 impl MALClient {
-    pub fn new(secret: &str) -> Self {
+    pub async fn new(secret: &str) -> Self {
+        let client = reqwest::Client::new();
         let mut n_a = false;
         let dir = if let Some(d) = ProjectDirs::from("com", "EmeraldActual", "miru") {
             if !d.data_dir().exists() {
@@ -42,12 +45,45 @@ impl MALClient {
         } else {
             panic!("Unable to locate application directory");
         };
-        let mut token = None;
-        if dir.cache_dir().join("access_token.tok").exists() {
-            if let Ok(tok) = fs::read_to_string(dir.cache_dir().join("access_token.tok")) {
-                token = Some(Box::new(tok));
-            } else {
-                token = None;
+        let mut token = String::new();
+        if dir.cache_dir().join("tokens.json").exists() {
+            if let Ok(tokens) = fs::read_to_string(dir.cache_dir().join("tokens.json")) {
+                let mut tok: Tokens = serde_json::from_str(&tokens).unwrap();
+                if let Ok(n) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+                    if n.as_secs() - tok.today >= tok.expires_in as u64 {
+                        let params = [
+                            ("grant_type", "refresh_token"),
+                            ("refesh_token", &tok.refresh_token),
+                        ];
+                        let res = client
+                            .post("https://myanimelist.net/v1/oauth2/token")
+                            .form(&params)
+                            .send()
+                            .await
+                            .expect("Unable to refresh token");
+                        let new_toks: TokenResponse =
+                            serde_json::from_str(&res.text().await.unwrap())
+                                .expect("Unable to parse response");
+                        token = new_toks.access_token.clone();
+                        tok = Tokens {
+                            access_token: new_toks.access_token,
+                            refresh_token: new_toks.refresh_token,
+                            expires_in: new_toks.expires_in,
+                            today: SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs(),
+                        };
+
+                        fs::write(
+                            dir.cache_dir().join("tokens.json"),
+                            serde_json::to_string(&tok).expect("Unable to parse token struct"),
+                        )
+                        .expect("Unable to write token file")
+                    } else {
+                        token = tok.access_token;
+                    }
+                }
             }
         } else {
             n_a = true;
@@ -58,6 +94,7 @@ impl MALClient {
             dirs: dir,
             need_auth: n_a,
             access_token: token,
+            client,
         };
 
         me
@@ -98,67 +135,49 @@ impl MALClient {
     }
 
     async fn get_tokens(&self, code: &str, verifier: &str) {
-        let client = reqwest::Client::new();
         let params = [
             ("client_id", self.client_secret.as_str()),
             ("grant_type", "authorization_code"),
             ("code_verifier", verifier),
             ("code", code),
         ];
-        let rec = client
+        let rec = self
+            .client
             .request(Method::POST, "https://myanimelist.net/v1/oauth2/token")
             .form(&params)
             .build()
             .unwrap();
-        let res = client.execute(rec).await.unwrap();
+        let res = self.client.execute(rec).await.unwrap();
         let tokens: TokenResponse = serde_json::from_str(&res.text().await.unwrap()).unwrap();
-
+        let tjson = Tokens {
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_in: tokens.expires_in,
+            today: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        };
         {
-            let mut access = File::create(self.dirs.cache_dir().join("access_token.tok"))
+            let mut f = File::create(self.dirs.cache_dir().join("tokens.json"))
                 .expect("Unable to create token file");
-            access
-                .write_all(tokens.access_token.as_bytes())
-                .expect("Unable to write access token");
-        }
-        {
-            let mut refresh = File::create(self.dirs.cache_dir().join("refresh_token.tok"))
-                .expect("Unable to create token file");
-            refresh
-                .write_all(tokens.refresh_token.as_bytes())
-                .expect("Unable to write refresh token");
+            f.write_all(serde_json::to_string(&tjson).unwrap().as_bytes())
+                .expect("Unable to write tokens");
         }
     }
 
-    pub async fn get_anime_list(&self) -> Result<String, String> {
-        let client = reqwest::Client::new();
-        match client
+    pub async fn get_anime_list(&self) -> Result<AnimeList, String> {
+        match self
+            .client
             .get("https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=4")
-            .bearer_auth(self.access_token.as_ref().unwrap())
+            .bearer_auth(&self.access_token)
             .send()
             .await
         {
-            Ok(res) => Ok(serde_json::from_str(&res.text().await.unwrap()).expect("Unable to parse response")),
+            Ok(res) => Ok(serde_json::from_str(&res.text().await.unwrap()).unwrap()),
             Err(e) => Err(format!("{}", e)),
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AnimeList {
-    data:  Vec<ListNode>,
-    paging: HashMap<String, String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ListNode{
-    node: Vec<Show>
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Show{
-    id: i32,
-    title: String,
-    rest: HashMap<String, String>
 }
 
 #[derive(Deserialize, Debug)]
@@ -167,4 +186,12 @@ struct TokenResponse {
     expires_in: u32,
     access_token: String,
     refresh_token: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Tokens {
+    access_token: String,
+    refresh_token: String,
+    expires_in: u32,
+    today: u64,
 }
