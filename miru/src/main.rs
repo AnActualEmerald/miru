@@ -1,11 +1,10 @@
-#[macro_use]
-extern crate tokio;
+use tokio;
 
 use lib_mal::MALClient;
 
 #[tokio::main]
 async fn main() {
-    let client = MALClient::new(include_str!("secret")).await;
+    let mut client = MALClient::new(include_str!("secret"), true).await;
     if client.need_auth {
         let (url, challenge) = client.get_auth_parts();
         println!("This will look very pretty one day :) ===> {}", url);
@@ -13,8 +12,8 @@ async fn main() {
         println!("Logged in successfully");
     }
     let list = client
-        .get_anime_list()
+        .get_anime_details(&80, Some(vec!["title, alternative_titles"]))
         .await
         .expect("Couldn't get anime list");
-    println!("{}", list.data[0].node.title);
+    println!("{}", list.alternative_titles.unwrap().synonyms[0]);
 }

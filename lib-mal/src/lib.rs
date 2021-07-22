@@ -3,9 +3,9 @@ mod test;
 
 pub mod model;
 
-use model::AnimeList;
+use model::{AnimeDetails, AnimeList};
 
-use directories::{self, ProjectDirs};
+use directories::ProjectDirs;
 use pkce;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
@@ -22,11 +22,12 @@ pub struct MALClient {
     dirs: ProjectDirs,
     access_token: String,
     client: reqwest::Client,
+    caching: bool,
     pub need_auth: bool,
 }
 
 impl MALClient {
-    pub async fn new(secret: &str) -> Self {
+    pub async fn new(secret: &str, caching: bool) -> Self {
         let client = reqwest::Client::new();
         let mut n_a = false;
         let dir = if let Some(d) = ProjectDirs::from("com", "EmeraldActual", "miru") {
@@ -46,7 +47,7 @@ impl MALClient {
             panic!("Unable to locate application directory");
         };
         let mut token = String::new();
-        if dir.cache_dir().join("tokens.json").exists() {
+        if dir.cache_dir().join("tokens.json").exists() && caching {
             if let Ok(tokens) = fs::read_to_string(dir.cache_dir().join("tokens.json")) {
                 let mut tok: Tokens = serde_json::from_str(&tokens).unwrap();
                 if let Ok(n) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
@@ -95,6 +96,7 @@ impl MALClient {
             need_auth: n_a,
             access_token: token,
             client,
+            caching,
         };
 
         me
@@ -107,7 +109,7 @@ impl MALClient {
         (url, challenge)
     }
 
-    pub async fn auth(&self, challenge: &str) -> Result<(), String> {
+    pub async fn auth(&mut self, challenge: &str) -> Result<(), String> {
         let mut code = "".to_owned();
 
         let server = Server::http("localhost:2561").unwrap();
@@ -134,7 +136,7 @@ impl MALClient {
         Ok(())
     }
 
-    async fn get_tokens(&self, code: &str, verifier: &str) {
+    async fn get_tokens(&mut self, code: &str, verifier: &str) {
         let params = [
             ("client_id", self.client_secret.as_str()),
             ("grant_type", "authorization_code"),
@@ -149,6 +151,8 @@ impl MALClient {
             .unwrap();
         let res = self.client.execute(rec).await.unwrap();
         let tokens: TokenResponse = serde_json::from_str(&res.text().await.unwrap()).unwrap();
+        self.access_token = tokens.access_token.clone();
+
         let tjson = Tokens {
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
@@ -158,7 +162,7 @@ impl MALClient {
                 .unwrap()
                 .as_secs(),
         };
-        {
+        if self.caching {
             let mut f = File::create(self.dirs.cache_dir().join("tokens.json"))
                 .expect("Unable to create token file");
             f.write_all(serde_json::to_string(&tjson).unwrap().as_bytes())
@@ -166,10 +170,56 @@ impl MALClient {
         }
     }
 
+    //Begin API functions
+
+    ///Returns the user's full anime list as an `AnimeList` struct.
+    ///If the request fails for any reason, an `Err` object with a string describing the error is returned instead
     pub async fn get_anime_list(&self) -> Result<AnimeList, String> {
         match self
             .client
             .get("https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=4")
+            .bearer_auth(&self.access_token)
+            .send()
+            .await
+        {
+            Ok(res) => Ok(serde_json::from_str(&res.text().await.unwrap()).unwrap()),
+            Err(e) => Err(format!("{}", e)),
+        }
+    }
+
+    ///Gets the deatils for an anime by the show's ID.
+    ///Only returns the fields specified in the `fields` parameter
+    ///Returns all fields when supplied `None`
+    ///
+    ///Field options are:
+    ///
+    ///id,title,main_picture,alternative_titles,
+    ///start_date,end_date,synopsis,mean,rank,popularity,num_list_users,
+    ///num_scoring_users,nsfw,created_at,updated_at,media_type,status,
+    ///genres,my_list_status,num_episodes,start_season,broadcast,source,
+    ///average_episode_duration,rating,pictures,background,related_anime,
+    ///related_manga,recommendations,studios,statistics
+    ///
+    pub async fn get_anime_details(
+        &self,
+        id: &u32,
+        fields: Option<Vec<&str>>,
+    ) -> Result<AnimeDetails, String> {
+        let url = if let Some(f) = fields {
+            format!(
+                "https://api.myanimelist.net/v2/anime/{}?fields={}",
+                id,
+                f.join(",")
+            )
+        } else {
+            format!(
+                "https://api.myanimelist.net/v2/anime/{}?fields=id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics",
+                id
+            )
+        };
+        match self
+            .client
+            .get(url)
             .bearer_auth(&self.access_token)
             .send()
             .await
