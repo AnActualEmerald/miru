@@ -15,13 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: print secrets
-      run: |
-          echo $DEV_ENV_FILE >> miru/src/secret
-          cat miru/src/secret
-      shell: bash
+    - name: Create Secret File
+      uses: finnp/create-file-action@1.0.0
       env:
-          DEV_ENV_FILE : ${{secrets.MALID}}
+        FILE_NAME: "miru/src/secret"
+        FILE_DATA: ${{ secrets.MALID }}
+
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
