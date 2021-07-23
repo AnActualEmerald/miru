@@ -15,13 +15,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Download secret file
-      uses: actions/download-artifact@v2.0.10
-      with:
-        # Artifact name
-        name: DEV_SECRET_FILE
-        # Destination path
-        path: src/secret
+    - name: print secrets
+      run: |
+          echo $DEV_ENV_FILE >> miru/src/secret
+          cat miru/src/secret
+      shell: bash
+      env:
+          DEV_ENV_FILE : ${{secrets.MALID}}
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
