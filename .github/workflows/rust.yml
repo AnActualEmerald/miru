@@ -18,7 +18,7 @@ jobs:
     - name: Create Secret File
       uses: finnp/create-file-action@1.0.0
       env:
-        FILE_NAME: "miru/src/secret"
+        FILE_NAME: "~/miru/src/secret"
         FILE_DATA: ${{ secrets.MALID }}
 
     - uses: actions/checkout@v2
