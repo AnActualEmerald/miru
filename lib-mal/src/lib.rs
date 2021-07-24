@@ -32,13 +32,14 @@ impl MALClient {
         let mut n_a = false;
         let dir = if let Some(d) = ProjectDirs::from("com", "EmeraldActual", "miru") {
             if !d.data_dir().exists() {
-                fs::create_dir(d.data_dir()).expect("Unable to create data dir");
+                println!("{}", d.data_dir().display());
+                fs::create_dir_all(d.data_dir()).expect("Unable to create data dir");
             }
             if !d.config_dir().exists() {
-                fs::create_dir(d.config_dir()).expect("Unable to create config dir");
+                fs::create_dir_all(d.config_dir()).expect("Unable to create config dir");
             }
             if !d.cache_dir().exists() {
-                fs::create_dir(d.cache_dir()).expect("Unable to create cache dir");
+                fs::create_dir_all(d.cache_dir()).expect("Unable to create cache dir");
                 n_a = true;
             }
 
@@ -195,7 +196,6 @@ impl MALClient {
         let res = self.do_request(url.to_owned()).await?;
  
         Ok(serde_json::from_str(&res).unwrap())
-        
     }
 
     ///Gets the deatils for an anime by the show's ID.
@@ -223,10 +223,7 @@ impl MALClient {
                 f.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(",")
             )
         } else {
-            format!(
-                "https://api.myanimelist.net/v2/anime/{}?fields=id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics",
-                id
-            )
+            format!("https://api.myanimelist.net/v2/anime/{}?fields=fields=id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics", id)
         };
         match self
             .client

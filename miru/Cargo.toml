@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 lib-mal={path="../lib-mal"}
 tokio = {version = "1.8.2", features = ["full"]}
+webbrowser = "0.5.5"
