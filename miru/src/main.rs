@@ -1,6 +1,8 @@
 use tokio;
 
 use lib_mal::MALClient;
+use lib_mal::model::fields::AnimeField;
+use lib_mal::model::options::RankingType;
 
 #[tokio::main]
 async fn main() {
@@ -12,8 +14,10 @@ async fn main() {
         println!("Logged in successfully");
     }
     let list = client
-        .get_anime_details(&80, Some(vec!["title, alternative_titles"]))
+        .get_anime_details(&80, Some(vec![AnimeField::Title, AnimeField::Studios]))
         .await
         .expect("Couldn't get anime list");
-    println!("{}", list.alternative_titles.unwrap().synonyms[0]);
+    let rank = client.get_anime_ranking(RankingType::Airing).await.expect("Unable to get anime ranking");
+    println!("{:?}", list);
+    println!("{:?}", rank);
 }

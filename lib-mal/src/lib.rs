@@ -3,7 +3,7 @@ mod test;
 
 pub mod model;
 
-use model::{AnimeDetails, AnimeList};
+use model::{AnimeDetails, AnimeList, fields::AnimeField, options::RankingType};
 
 use directories::ProjectDirs;
 use pkce;
@@ -170,21 +170,32 @@ impl MALClient {
         }
     }
 
+    ///Sends a get request to the specified URL with the appropriate auth header
+    async fn do_request(&self, url: String) -> Result<String, String> {
+        match self.client.get(url).bearer_auth(&self.access_token).send().await {
+            Ok(res) => Ok(res.text().await.unwrap()),
+            Err(e) => Err(format!("{}", e))
+        }
+    }
+
+    ///Sends a get request to the specified URL with the appropriate auth header
+    async fn do_request_forms(&self, url: String, params: Vec<(&str, &str)>) -> Result<String, String> {
+        match self.client.get(url).bearer_auth(&self.access_token).form(&params).send().await {
+            Ok(res) => Ok(res.text().await.unwrap()),
+            Err(e) => Err(format!("{}", e))
+        }
+    }
+
     //Begin API functions
 
     ///Returns the user's full anime list as an `AnimeList` struct.
     ///If the request fails for any reason, an `Err` object with a string describing the error is returned instead
     pub async fn get_anime_list(&self) -> Result<AnimeList, String> {
-        match self
-            .client
-            .get("https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=4")
-            .bearer_auth(&self.access_token)
-            .send()
-            .await
-        {
-            Ok(res) => Ok(serde_json::from_str(&res.text().await.unwrap()).unwrap()),
-            Err(e) => Err(format!("{}", e)),
-        }
+        let url = "https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=4";
+        let res = self.do_request(url.to_owned()).await?;
+ 
+        Ok(serde_json::from_str(&res).unwrap())
+        
     }
 
     ///Gets the deatils for an anime by the show's ID.
@@ -203,13 +214,13 @@ impl MALClient {
     pub async fn get_anime_details(
         &self,
         id: &u32,
-        fields: Option<Vec<&str>>,
-    ) -> Result<AnimeDetails, String> {
+        fields: Option<Vec<AnimeField>>,
+    ) -> Result<AnimeDetails, String> { 
         let url = if let Some(f) = fields {
             format!(
                 "https://api.myanimelist.net/v2/anime/{}?fields={}",
                 id,
-                f.join(",")
+                f.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(",")
             )
         } else {
             format!(
@@ -228,6 +239,13 @@ impl MALClient {
             Err(e) => Err(format!("{}", e)),
         }
     }
+
+    pub async fn get_anime_ranking(&self, ranking_type: RankingType) -> Result<AnimeList, String> {
+        let url = format!("https://api.myanimelist.net/v2/anime/ranking?ranking_type={}", ranking_type);
+        let res = self.do_request(url).await?;
+        Ok(serde_json::from_str(&res).unwrap())
+    }
+
 }
 
 #[derive(Deserialize, Debug)]

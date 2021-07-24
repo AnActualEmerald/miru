@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
+pub mod fields;
+pub mod options;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AnimeList {
     pub data: Vec<ListNode>,
@@ -12,7 +15,8 @@ pub struct AnimeList {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ListNode {
     pub node: Anime,
-    pub list_status: ListStatus,
+    pub list_status: Option<ListStatus>,
+    pub ranking: Option<HashMap<String, u32>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
