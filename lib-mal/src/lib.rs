@@ -3,12 +3,12 @@ mod test;
 
 pub mod model;
 
-use model::{AnimeDetails, AnimeList, fields::AnimeField, options::RankingType};
+use model::{AnimeDetails, AnimeList, fields::AnimeField, options::{Season, RankingType}};
 
 use pkce;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
-use std::{fs::{self, File}, io::Write, path::{PathBuf}, str, time::SystemTime};
+use std::{fs::{self, File}, io::Write, path::PathBuf, str, time::SystemTime};
 use tiny_http::{Response, Server};
 
 pub struct MALClient {
@@ -173,11 +173,19 @@ impl MALClient {
         }
     }
 
+    fn parse_response<'a, T: Serialize + Deserialize<'a>>(&self, res: &'a str) -> Result<T, String> {
+
+        match serde_json::from_str::<T>(res) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(format!("{}", e))
+        }
+    }
+
     //Begin API functions
 
     ///Returns the user's full anime list as an `AnimeList` struct.
     ///If the request fails for any reason, an `Err` object with a string describing the error is returned instead
-    pub async fn get_anime_list(&self) -> Result<AnimeList, String> {
+    pub async fn get_my_anime_list(&self) -> Result<AnimeList, String> {
         let url = "https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=4";
         let res = self.do_request(url.to_owned()).await?;
  
@@ -186,17 +194,8 @@ impl MALClient {
 
     ///Gets the deatils for an anime by the show's ID.
     ///Only returns the fields specified in the `fields` parameter
+    ///
     ///Returns all fields when supplied `None`
-    ///
-    ///Field options are:
-    ///
-    ///id,title,main_picture,alternative_titles,
-    ///start_date,end_date,synopsis,mean,rank,popularity,num_list_users,
-    ///num_scoring_users,nsfw,created_at,updated_at,media_type,status,
-    ///genres,my_list_status,num_episodes,start_season,broadcast,source,
-    ///average_episode_duration,rating,pictures,background,related_anime,
-    ///related_manga,recommendations,studios,statistics
-    ///
     pub async fn get_anime_details(
         &self,
         id: &u32,
@@ -209,7 +208,7 @@ impl MALClient {
                 f.iter().map(|v| v.to_string()).collect::<Vec<String>>().join(",")
             )
         } else {
-            format!("https://api.myanimelist.net/v2/anime/{}?fields=fields=id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics", id)
+            format!("https://api.myanimelist.net/v2/anime/{}?fields={}", id, AnimeField::ALL)
         };
         match self
             .client
@@ -223,11 +222,22 @@ impl MALClient {
         }
     }
 
-    pub async fn get_anime_ranking(&self, ranking_type: RankingType) -> Result<AnimeList, String> {
-        let url = format!("https://api.myanimelist.net/v2/anime/ranking?ranking_type={}", ranking_type);
+    ///Gets a list of anime ranked by `RankingType` 
+    ///
+    ///`limt` defaults to the max of 100 if `None` is supplied
+    pub async fn get_anime_ranking(&self, ranking_type: RankingType, limit: Option<u8>) -> Result<AnimeList, String> {
+        let url = format!("https://api.myanimelist.net/v2/anime/ranking?ranking_type={}&limit={}", ranking_type, limit.unwrap_or(100));
         let res = self.do_request(url).await?;
         Ok(serde_json::from_str(&res).unwrap())
     }
+
+    pub async fn get_seasonal_anime(&self, season: Season, year: u32, limit: Option<u8>) -> Result<AnimeList, String> {
+        let url = format!("https://api.myanimelist.net/v2/anime/season/{}/{}?limit={}", year, season, limit.unwrap_or(100)); 
+        let res = self.do_request(url).await?;
+        self.parse_response::<AnimeList>(&res) 
+    }
+
+    
 
 }
 

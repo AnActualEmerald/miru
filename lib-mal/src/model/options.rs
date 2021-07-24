@@ -34,3 +34,28 @@ impl Display for RankingType {
         write!(f, "{}", self.to_string())
     }
 }
+
+#[derive(Debug)]
+pub enum Season {
+    Winter,
+    Spring,
+    Summer,
+    Fall,
+}
+
+impl Season {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Winter => "winter".to_owned(),
+            Self::Spring => "spring".to_owned(),
+            Self::Summer => "summer".to_owned(),
+            Self::Fall => "fall".to_owned(),
+        }
+    }
+}
+
+impl Display for Season {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}

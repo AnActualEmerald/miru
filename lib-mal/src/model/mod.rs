@@ -8,8 +8,8 @@ pub mod options;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AnimeList {
     pub data: Vec<ListNode>,
-    #[serde(flatten)]
     paging: HashMap<String, Value>,
+    season: Option<HashMap<String, Value>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

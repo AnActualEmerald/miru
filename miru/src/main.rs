@@ -33,10 +33,10 @@ async fn main() {
         println!("Logged in successfully!");
     }
     let list = client
-        .get_anime_details(&80, Some(vec![AnimeField::Title, AnimeField::Studios]))
+        .get_seasonal_anime(lib_mal::model::options::Season::Fall, 2020, Some(4))
         .await
         .expect("Couldn't get anime list");
-    let rank = client.get_anime_ranking(RankingType::Airing).await.expect("Unable to get anime ranking");
+    let rank = client.get_anime_ranking(RankingType::Airing, Some(4)).await.expect("Unable to get anime ranking");
     println!("{:?}", list);
     println!("{:?}", rank);
 }
