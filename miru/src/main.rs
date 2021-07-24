@@ -1,12 +1,25 @@
+use std::fs;
+
 use lib_mal::MALClient;
 use lib_mal::model::fields::AnimeField;
 use lib_mal::model::options::RankingType;
 use tokio;
 use webbrowser;
+use directories::ProjectDirs;
 
 #[tokio::main]
 async fn main() {
-    let mut client = MALClient::new(include_str!("secret"), true).await;
+    let cache_dir = if let Some(d) = ProjectDirs::from("com", "EmeraldActual", "miru"){
+        if d.cache_dir().exists() {
+           Some(d.cache_dir().to_path_buf())
+        } else {
+            fs::create_dir_all(d.cache_dir()).expect("Unable to create cache directory");
+            Some(d.cache_dir().to_path_buf())
+        }
+    }else {
+        None
+    };
+    let mut client = MALClient::new(include_str!("secret"), true, cache_dir).await;
     if client.need_auth {
         let (url, challenge) = client.get_auth_parts();
         println!("Opening browser to log in...");

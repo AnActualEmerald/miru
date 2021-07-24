@@ -5,21 +5,15 @@ pub mod model;
 
 use model::{AnimeDetails, AnimeList, fields::AnimeField, options::RankingType};
 
-use directories::ProjectDirs;
 use pkce;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::{self, File},
-    io::Write,
-    str,
-    time::SystemTime,
-};
+use std::{fs::{self, File}, io::Write, path::{PathBuf}, str, time::SystemTime};
 use tiny_http::{Response, Server};
 
 pub struct MALClient {
     client_secret: String,
-    dirs: ProjectDirs,
+    dirs: PathBuf,
     access_token: String,
     client: reqwest::Client,
     caching: bool,
@@ -27,29 +21,20 @@ pub struct MALClient {
 }
 
 impl MALClient {
-    pub async fn new(secret: &str, caching: bool) -> Self {
+    pub async fn new(secret: &str, caching: bool, cache_dir: Option<PathBuf>) -> Self {
         let client = reqwest::Client::new();
+        let mut will_cache = caching;
         let mut n_a = false;
-        let dir = if let Some(d) = ProjectDirs::from("com", "EmeraldActual", "miru") {
-            if !d.data_dir().exists() {
-                println!("{}", d.data_dir().display());
-                fs::create_dir_all(d.data_dir()).expect("Unable to create data dir");
-            }
-            if !d.config_dir().exists() {
-                fs::create_dir_all(d.config_dir()).expect("Unable to create config dir");
-            }
-            if !d.cache_dir().exists() {
-                fs::create_dir_all(d.cache_dir()).expect("Unable to create cache dir");
-                n_a = true;
-            }
-
-            d
+        let dir = if let Some(d) = cache_dir{
+           d
         } else {
-            panic!("Unable to locate application directory");
+            println!("No cache directory was provided, disabling caching");
+            will_cache = false;
+            PathBuf::new()
         };
         let mut token = String::new();
-        if dir.cache_dir().join("tokens.json").exists() && caching {
-            if let Ok(tokens) = fs::read_to_string(dir.cache_dir().join("tokens.json")) {
+        if will_cache && dir.join("tokens.json").exists() {
+            if let Ok(tokens) = fs::read_to_string(dir.join("tokens.json")) {
                 let mut tok: Tokens = serde_json::from_str(&tokens).unwrap();
                 if let Ok(n) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
                     if n.as_secs() - tok.today >= tok.expires_in as u64 {
@@ -78,7 +63,7 @@ impl MALClient {
                         };
 
                         fs::write(
-                            dir.cache_dir().join("tokens.json"),
+                            dir.join("tokens.json"),
                             serde_json::to_string(&tok).expect("Unable to parse token struct"),
                         )
                         .expect("Unable to write token file")
@@ -88,6 +73,7 @@ impl MALClient {
                 }
             }
         } else {
+            will_cache = false;
             n_a = true;
         }
 
@@ -97,7 +83,7 @@ impl MALClient {
             need_auth: n_a,
             access_token: token,
             client,
-            caching,
+            caching: will_cache,
         };
 
         me
@@ -164,7 +150,7 @@ impl MALClient {
                 .as_secs(),
         };
         if self.caching {
-            let mut f = File::create(self.dirs.cache_dir().join("tokens.json"))
+            let mut f = File::create(self.dirs.join("tokens.json"))
                 .expect("Unable to create token file");
             f.write_all(serde_json::to_string(&tjson).unwrap().as_bytes())
                 .expect("Unable to write tokens");
