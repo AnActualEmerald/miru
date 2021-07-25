@@ -2,7 +2,7 @@ use std::fs;
 
 use lib_mal::MALClient;
 use lib_mal::model::fields::AnimeField;
-use lib_mal::model::options::RankingType;
+use lib_mal::model::options::{RankingType, Status, StatusUpdate, Params};
 use tokio;
 use webbrowser;
 use directories::ProjectDirs;
@@ -32,11 +32,11 @@ async fn main() {
         client.auth(&challenge).await.expect("Auth failed");
         println!("Logged in successfully!");
     }
-    let list = client
-        .get_seasonal_anime(lib_mal::model::options::Season::Fall, 2020, Some(4))
-        .await
-        .expect("Couldn't get anime list");
-    let rank = client.get_anime_ranking(RankingType::Airing, Some(4)).await.expect("Unable to get anime ranking");
-    println!("{:?}", list);
-    println!("{:?}", rank);
+    let mut update = StatusUpdate::new();
+    update.status(Status::Dropped);
+    update.score(10);
+    update.priority(0);
+    update.rewatch_value(3);
+    update.comments("Pretty good show lol");
+    println!("{:?}", client.update_user_anime_status(80, update).await);
 }

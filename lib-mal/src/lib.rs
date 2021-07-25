@@ -3,7 +3,7 @@ mod test;
 
 pub mod model;
 
-use model::{AnimeDetails, AnimeList, fields::AnimeField, options::{Season, RankingType}};
+use model::{AnimeDetails, AnimeList, ListStatus, fields::AnimeField, options::{RankingType, Season, Params}};
 
 use pkce;
 use reqwest::Method;
@@ -165,14 +165,16 @@ impl MALClient {
         }
     }
 
-    ///Sends a get request to the specified URL with the appropriate auth header
-    async fn do_request_forms(&self, url: String, params: Vec<(&str, &str)>) -> Result<String, String> {
-        match self.client.get(url).bearer_auth(&self.access_token).form(&params).send().await {
+    ///Sends a put request to the specified URL with the appropriate auth header and 
+    ///form encoded parameters
+    async fn do_request_forms(&self, url: String, params: Vec<(&str, String)>) -> Result<String, String> {
+        match self.client.put(url).bearer_auth(&self.access_token).form(&params).send().await {
             Ok(res) => Ok(res.text().await.unwrap()),
             Err(e) => Err(format!("{}", e))
         }
     }
 
+    ///Tries to parse a JSON response string into the type provided in the `::<>` turbofish
     fn parse_response<'a, T: Serialize + Deserialize<'a>>(&self, res: &'a str) -> Result<T, String> {
 
         match serde_json::from_str::<T>(res) {
@@ -183,13 +185,13 @@ impl MALClient {
 
     //Begin API functions
 
-    ///Returns the user's full anime list as an `AnimeList` struct.
-    ///If the request fails for any reason, an `Err` object with a string describing the error is returned instead
-    pub async fn get_my_anime_list(&self) -> Result<AnimeList, String> {
-        let url = "https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=4";
-        let res = self.do_request(url.to_owned()).await?;
- 
-        Ok(serde_json::from_str(&res).unwrap())
+    //--Anime functions--//
+    ///Gets a list of anime based on the query string provided
+    ///`limit` defaults to 100 if `None`
+    pub async fn get_anime_list(&self, query: &str, limit: Option<u8>) -> Result<AnimeList, String> {
+       let url = format!("https://api.myanimelist.net/v2/anime?q={}&limit={}", query, limit.unwrap_or(100));
+       let res = self.do_request(url).await?;
+       self.parse_response(&res)
     }
 
     ///Gets the deatils for an anime by the show's ID.
@@ -224,21 +226,52 @@ impl MALClient {
 
     ///Gets a list of anime ranked by `RankingType` 
     ///
-    ///`limt` defaults to the max of 100 if `None` is supplied
+    ///`limit` defaults to the max of 100 when `None`
     pub async fn get_anime_ranking(&self, ranking_type: RankingType, limit: Option<u8>) -> Result<AnimeList, String> {
         let url = format!("https://api.myanimelist.net/v2/anime/ranking?ranking_type={}&limit={}", ranking_type, limit.unwrap_or(100));
         let res = self.do_request(url).await?;
         Ok(serde_json::from_str(&res).unwrap())
     }
 
+    ///Gets the anime for a given season in a given year
+    ///
+    ///`limit` defaults to the max of 100 when `None`
     pub async fn get_seasonal_anime(&self, season: Season, year: u32, limit: Option<u8>) -> Result<AnimeList, String> {
         let url = format!("https://api.myanimelist.net/v2/anime/season/{}/{}?limit={}", year, season, limit.unwrap_or(100)); 
         let res = self.do_request(url).await?;
-        self.parse_response::<AnimeList>(&res) 
+        self.parse_response(&res) 
+    }
+
+    ///Returns the suggested anime for the current user. Can return an empty list if the user has
+    ///no suggestions.
+    pub async fn get_suggested_anime(&self, limit: Option<u8>) -> Result<AnimeList, String> {
+        let url = format!("https://api.myanimelist.net/v2/anime/suggestions?limit={}", limit.unwrap_or(100));
+        let res = self.do_request(url).await?;
+        self.parse_response(&res)
+    }
+
+    //--User functions--//
+
+    
+    pub async fn update_user_anime_status<T: Params>(&self, id: u32, update: T) -> Result<ListStatus, String> {
+        let params = update.get_params();
+        let url = format!("https://api.myanimelist.net/v2/anime/{}/my_list_status", id);
+        let res = self.do_request_forms(url, params).await?;
+        println!("{}", res);
+        self.parse_response(&res)
+    }
+
+
+    ///Returns the user's full anime list as an `AnimeList` struct.
+    ///If the request fails for any reason, an `Err` object with a string describing the error is returned instead
+    pub async fn get_user_anime_list(&self) -> Result<AnimeList, String> {
+        let url = "https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=4";
+        let res = self.do_request(url.to_owned()).await?;
+ 
+        Ok(serde_json::from_str(&res).unwrap())
     }
 
     
-
 }
 
 #[derive(Deserialize, Debug)]

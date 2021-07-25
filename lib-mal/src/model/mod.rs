@@ -21,11 +21,15 @@ pub struct ListNode {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ListStatus {
-    pub status: String,
-    pub num_episodes_watched: u32,
-    pub score: u8,
-    pub updated_at: String,
-    pub is_rewatching: bool,
+    pub status: Option<String>,
+    pub num_episodes_watched: Option<u32>,
+    pub score: Option<u8>,
+    pub updated_at: Option<String>,
+    pub is_rewatching: Option<bool>,
+    pub priority: Option<u32>,
+    pub rewatch_value: Option<u32>,
+    pub tags: Option<Vec<String>>,
+    pub comments: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
