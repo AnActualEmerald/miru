@@ -12,4 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Get anime details` API function
 - `Get anime ranking` API function
 - `Get seasonal anime` API function
+- `Get user anime list` API funciton
+- `Delete user anime list item` API function
+- `Get forum topics` API function
 - Enums for available fields and request options

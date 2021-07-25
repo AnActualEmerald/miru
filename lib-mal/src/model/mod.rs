@@ -98,3 +98,8 @@ pub struct Recommnendation {
     pub node: Anime,
     pub num_recommendations: u32,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ForumBoards {
+    pub categories: Vec<HashMap<String, Value>>,
+}

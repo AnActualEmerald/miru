@@ -3,10 +3,10 @@ mod test;
 
 pub mod model;
 
-use model::{AnimeDetails, AnimeList, ListStatus, fields::AnimeField, options::{RankingType, Season, Params}};
+use model::{AnimeDetails, AnimeList, ForumBoards, ListStatus, fields::AnimeField, options::{RankingType, Season, Params}};
 
 use pkce;
-use reqwest::Method;
+use reqwest::{Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::{fs::{self, File}, io::Write, path::PathBuf, str, time::SystemTime};
 use tiny_http::{Response, Server};
@@ -250,7 +250,7 @@ impl MALClient {
         self.parse_response(&res)
     }
 
-    //--User functions--//
+    //--User anime list functions--//
 
     
     pub async fn update_user_anime_status<T: Params>(&self, id: u32, update: T) -> Result<ListStatus, String> {
@@ -269,6 +269,33 @@ impl MALClient {
         let res = self.do_request(url.to_owned()).await?;
  
         Ok(serde_json::from_str(&res).unwrap())
+    }
+
+    ///Deletes the anime with `id` from the user's anime list
+    ///
+    ///Returns 404 if the id isn't in the list. 
+    pub async fn delete_anime_list_item(&self, id: u32) -> Result<(), String> {
+        let url = format!("https://api.myanimelist.net/v2/anime/{}/my_list_status", id);
+        let res = self.client.delete(url).bearer_auth(&self.access_token).send().await;
+        match res {
+            Ok(r) => {
+                if r.status() == StatusCode::NOT_FOUND {
+                    Err(format!("Anime {} not found", id))
+                }else {
+                    Ok(())
+                }
+            }
+            Err(e) => Err(format!("{}", e))
+        }
+       
+    }
+
+    //--Forum functions--//
+    
+    ///Returns a vector of `HashMap`s that represent all the forum boards on MAL
+    pub async fn get_forum_boards(&self) -> Result<ForumBoards, String> {
+        let res = self.do_request("https://api.myanimelist.net/v2/forum/boards".to_owned()).await?;
+        self.parse_response(&res)
     }
 
     
