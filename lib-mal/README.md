@@ -6,3 +6,5 @@ Tokens are cached by default but this can be disabled when creating the client.
 
 API functions are a work in progress
 
+Manga list functions are currently unsupported, but may be implemented in the future
+
