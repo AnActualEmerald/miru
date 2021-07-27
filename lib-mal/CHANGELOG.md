@@ -14,5 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Get seasonal anime` API function
 - `Get user anime list` API funciton
 - `Delete user anime list item` API function
-- `Get forum topics` API function
+- `Get forum boards` API function
+- `Get forum topic details` API function
+- `Get forum topics` API funciton
 - Enums for available fields and request options

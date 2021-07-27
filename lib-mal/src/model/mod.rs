@@ -99,7 +99,20 @@ pub struct Recommnendation {
     pub num_recommendations: u32,
 }
 
+//TODO: Improve struct coverage for forum fucntions
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ForumBoards {
     pub categories: Vec<HashMap<String, Value>>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TopicDetails {
+    pub data: Vec<HashMap<String, Value>>,
+    pub paging: HashMap<String, Value>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ForumTopics {
+    pub data: Vec<HashMap<String, Value>>,
+    pub paging: Vec<HashMap<String, Value>>,
 }
