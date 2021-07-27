@@ -99,6 +99,15 @@ pub struct Recommnendation {
     pub num_recommendations: u32,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct User {
+    id: u32,
+    name: String,
+    location: String,
+    joined_at: String,
+    anime_statistics: HashMap<String, f32>,
+}
+
 //TODO: Improve struct coverage for forum fucntions
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ForumBoards {

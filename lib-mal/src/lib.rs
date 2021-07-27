@@ -6,7 +6,7 @@ pub mod model;
 use model::{
     fields::AnimeField,
     options::{Params, RankingType, Season},
-    AnimeDetails, AnimeList, ForumBoards, ForumTopics, ListStatus, TopicDetails,
+    AnimeDetails, AnimeList, ForumBoards, ForumTopics, ListStatus, TopicDetails, User,
 };
 
 use pkce;
@@ -317,6 +317,7 @@ impl MALClient {
 
     //--User anime list functions--//
 
+    ///Adds an anime to the list, or updates the element if it already exists
     pub async fn update_user_anime_status<T: Params>(
         &self,
         id: u32,
@@ -418,6 +419,18 @@ impl MALClient {
         let res = self.do_request(url).await?;
         self.parse_response(&res)
     }
+
+    ///Gets the details for the current user
+    ///
+    ///`fields` defaults to `anime_statistics` if `None`
+    pub async fn get_my_user_info(&self, fields: Option<&str>) -> Result<User, String> {
+        let url = format!(
+            "https://api.myanimelist.net/v2/users/@me?fields={}",
+            fields.unwrap_or("anime_statistics")
+        );
+        let res = self.do_request(url).await?;
+        self.parse_response(&res)
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -434,4 +447,10 @@ struct Tokens {
     refresh_token: String,
     expires_in: u32,
     today: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct APIError {
+    pub error: String,
+    pub message: String,
 }

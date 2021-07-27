@@ -39,7 +39,6 @@ pub enum AnimeField {
 impl AnimeField {
     pub fn to_string(&self) -> String {
         match self {
-            
     Self::ID => "id".to_owned(),
     Self::Title => "title".to_owned(),
     Self::MainPicture => "main_picture".to_owned(),
