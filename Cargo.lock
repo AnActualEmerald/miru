@@ -427,7 +427,6 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 name = "lib-mal"
 version = "0.0.1"
 dependencies = [
- "directories",
  "pkce",
  "rand 0.8.4",
  "reqwest",
@@ -505,8 +504,10 @@ dependencies = [
 name = "miru"
 version = "0.0.1-alpha"
 dependencies = [
+ "directories",
  "lib-mal",
  "tokio",
+ "webbrowser",
 ]
 
 [[package]]
@@ -1338,6 +1339,23 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "webbrowser"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecad156490d6b620308ed411cfee90d280b3cbd13e189ea0d3fada8acc89158a"
+dependencies = [
+ "web-sys",
+ "widestring",
+ "winapi",
+]
+
+[[package]]
+name = "widestring"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c168940144dd21fd8046987c16a46a33d5fc84eec29ef9dcddc2ac9e31526b7c"
 
 [[package]]
 name = "winapi"
