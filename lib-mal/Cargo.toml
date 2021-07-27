@@ -6,7 +6,6 @@ description = "A library for interacting with the MyAnimeList API"
 readme = "./README.md"
 repository = "https://github.com/AnActualEmerald/miru/tree/main/lib-mal"
 license-file = "./LICENSE"
-license = "GPL-3.0"
 keywords = ["api", "MyAnimeList", "MAL", "anime"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
