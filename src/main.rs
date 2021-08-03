@@ -1,16 +1,17 @@
 use std::fs;
 
 use clap::{crate_version, App, Arg, SubCommand};
-use crossterm::terminal::{self, ClearType};
-use crossterm::ExecutableCommand;
 use directories::ProjectDirs;
 use lib_mal::MALClient;
 use spinners::{self, Spinner, Spinners};
-use std::io::{stdout, Read, Write};
+use std::io::{stdout, Write};
 use tokio;
 use webbrowser;
 
+use crate::utils::clear_spinner;
+
 mod subcommands;
+mod utils;
 
 #[tokio::main]
 async fn main() {
@@ -34,6 +35,38 @@ async fn main() {
             SubCommand::with_name("list")
                 .alias("l")
                 .about("Retreives your AnimeList from MAL"),
+        )
+        .subcommand(
+            SubCommand::with_name("increment")
+                .aliases(&["inc", "i"])
+                .arg(
+                    Arg::with_name("ID")
+                        .help("ID of the anime to increment")
+                        .takes_value(true)
+                        .required_unless("title"),
+                )
+                .arg(
+                    Arg::with_name("title")
+                        .long("title")
+                        .short("t")
+                        .help("Search for the show to increment by title \nNot as reliable as using the ID")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::with_name("amount")
+                        .short("n")
+                        .long("num")
+                        .help("Amount to increment the show by")
+                        .default_value("1")
+                        .validator(|v| {
+                            if let Err(e) = v.parse::<i32>() {
+                                Err(format!("amount must be a number: {}", e))
+                            } else {
+                                Ok(())
+                            }
+                        }),
+                )
+                .about("Increment the episodes watched of a show on your anime list"),
         )
         .get_matches();
 
@@ -72,21 +105,13 @@ async fn login(client: &mut MALClient) -> Result<(), String> {
     let sp = Spinner::new(&Spinners::Arrow3, "Opening browser to log in...".into());
     let mut stdout = stdout();
     if let Err(e) = webbrowser::open(&url) {
-        sp.stop();
-        stdout
-            .execute(terminal::Clear(ClearType::CurrentLine))
-            .expect("Unable to clear line");
+        clear_spinner(sp);
         println!("\rUnable to open browser due to: {}", e);
         println!("Open this link to log in... => {}", url);
         client.auth("localhost:2561", &challenge, &state).await?;
     } else {
         client.auth("localhost:2561", &challenge, &state).await?;
-
-        sp.stop();
-        stdout
-            .execute(terminal::Clear(ClearType::CurrentLine))
-            .expect("Unable to clear line");
-        print!("\r");
+        clear_spinner(sp);
     }
     stdout.flush().expect("Unable to flush stdout");
     Ok(())

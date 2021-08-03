@@ -625,8 +625,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 [[package]]
 name = "lib-mal"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "890fa161d14cc59050215fcb1a6870dce5cdf7061348a2c620d0700786727153"
+source = "git+https://github.com/AnActualEmerald/lib-mal.git?branch=master#403326044f3a53d2b4dffb86cfaa72d3dea80cac"
 dependencies = [
  "aes-gcm",
  "pkce",
