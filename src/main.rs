@@ -1,42 +1,93 @@
 use std::fs;
 
+use clap::{crate_version, App, Arg, SubCommand};
+use crossterm::terminal::{self, ClearType};
+use crossterm::ExecutableCommand;
+use directories::ProjectDirs;
 use lib_mal::MALClient;
-use lib_mal::model::fields::AnimeField;
-use lib_mal::model::options::{RankingType, Status, StatusUpdate, Params};
+use spinners::{self, Spinner, Spinners};
+use std::io::{stdout, Read, Write};
 use tokio;
 use webbrowser;
-use directories::ProjectDirs;
+
+mod subcommands;
 
 #[tokio::main]
 async fn main() {
-    let cache_dir = if let Some(d) = ProjectDirs::from("com", "EmeraldActual", "miru"){
+    let matches = App::new("Miru")
+        .about("A command line MyAnimeList.net client")
+        .author("Written by Emerald | emerald_actual@protonmail.com")
+        .version(crate_version!())
+        .arg(
+            Arg::with_name("login")
+                .long("login")
+                .short("l")
+                .help("Forces miru to log you in even if your tokens are still good"),
+        )
+        .arg(
+            Arg::with_name("cache")
+                .long("no-cache")
+                .short("c")
+                .help("Disables token caching"),
+        )
+        .subcommand(
+            SubCommand::with_name("list")
+                .alias("l")
+                .about("Retreives your AnimeList from MAL"),
+        )
+        .get_matches();
+
+    let cache_dir = if let Some(d) = ProjectDirs::from("com", "EmeraldActual", "miru") {
         if d.cache_dir().exists() {
-           Some(d.cache_dir().to_path_buf())
+            Some(d.cache_dir().to_path_buf())
         } else {
             fs::create_dir_all(d.cache_dir()).expect("Unable to create cache directory");
             Some(d.cache_dir().to_path_buf())
         }
-    }else {
+    } else {
         None
     };
-    let mut client = MALClient::new(include_str!("secret"), true, cache_dir).await;
-    if client.need_auth {
-        let (url, challenge) = client.get_auth_parts();
-        println!("Opening browser to log in...");
-        if let Err(e) = webbrowser::open(&url) {
-            println!(
-                "Unable to open web browser: {}\nGo to this URL to log in => {}",
-                e, url
-            );
+
+    //get the client ready
+    let mut client = MALClient::new(
+        include_str!("secret"),
+        !matches.is_present("cache"),
+        cache_dir,
+    )
+    .await;
+    if client.need_auth || matches.is_present("login") {
+        match login(&mut client).await {
+            Err(e) => eprintln!("Unable to log in: {}", e),
+            _ => {}
         }
-        client.auth(&challenge).await.expect("Auth failed");
-        println!("Logged in successfully!");
     }
-    let mut update = StatusUpdate::new();
-    update.status(Status::Dropped);
-    update.score(10);
-    update.priority(0);
-    update.rewatch_value(3);
-    update.comments("Pretty good show lol");
-    println!("{:?}", client.update_user_anime_status(80, update).await);
+
+    subcommands::do_command(&matches, &client)
+        .await
+        .expect("Command failed");
+}
+
+async fn login(client: &mut MALClient) -> Result<(), String> {
+    let (url, challenge, state) = client.get_auth_parts();
+    let sp = Spinner::new(&Spinners::Arrow3, "Opening browser to log in...".into());
+    let mut stdout = stdout();
+    if let Err(e) = webbrowser::open(&url) {
+        sp.stop();
+        stdout
+            .execute(terminal::Clear(ClearType::CurrentLine))
+            .expect("Unable to clear line");
+        println!("\rUnable to open browser due to: {}", e);
+        println!("Open this link to log in... => {}", url);
+        client.auth("localhost:2561", &challenge, &state).await?;
+    } else {
+        client.auth("localhost:2561", &challenge, &state).await?;
+
+        sp.stop();
+        stdout
+            .execute(terminal::Clear(ClearType::CurrentLine))
+            .expect("Unable to clear line");
+        print!("\r");
+    }
+    stdout.flush().expect("Unable to flush stdout");
+    Ok(())
 }
