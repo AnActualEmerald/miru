@@ -12,3 +12,7 @@ pub fn clear_spinner(sp: Spinner) {
         .expect("Unable to clear line");
     print!("\r");
 }
+
+pub fn spinner(msg: &str) -> Spinner {
+    Spinner::new(&spinners::Spinners::Dots5, msg.into())
+}

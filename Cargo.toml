@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lib-mal={git="https://github.com/AnActualEmerald/lib-mal.git", branch="master"}
+lib-mal="0.4.0"
 tokio = {version = "1.8.2", features = ["full"]}
 webbrowser = "0.5.5"
 directories = "3.0"

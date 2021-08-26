@@ -2,7 +2,7 @@ use std::fs;
 
 use clap::{crate_version, App, Arg, SubCommand};
 use directories::ProjectDirs;
-use lib_mal::MALClient;
+use lib_mal::{MALClient, MALError};
 use spinners::{self, Spinner, Spinners};
 use std::io::{stdout, Write};
 use tokio;
@@ -68,6 +68,14 @@ async fn main() {
                 )
                 .about("Increment the episodes watched of a show on your anime list"),
         )
+            .subcommand(SubCommand::with_name("search").alias("s").arg(Arg::with_name("TITLE").help("Title to search for").required(true)))
+            .subcommand(SubCommand::with_name("add").alias("a").help("Add an anime to your anime list").arg(Arg::with_name("ID").help("ID of the anime to add to your list").required_unless("title").takes_value(true).validator(|v| {
+                if let Err(_) = v.parse::<u32>() {
+                    Err(format!("ID must be a number!"))
+                } else {
+                    Ok(())
+                }
+            })).arg(Arg::with_name("title").takes_value(true).long("title").short("t").help("Title to add NOTE: not as reliable as using the ID")))
         .get_matches();
 
     let cache_dir = if let Some(d) = ProjectDirs::from("com", "EmeraldActual", "miru") {
@@ -82,7 +90,7 @@ async fn main() {
     };
 
     //get the client ready
-    let mut client = MALClient::new(
+    let mut client = MALClient::init(
         include_str!("secret"),
         !matches.is_present("cache"),
         cache_dir,
@@ -100,7 +108,7 @@ async fn main() {
         .expect("Command failed");
 }
 
-async fn login(client: &mut MALClient) -> Result<(), String> {
+async fn login(client: &mut MALClient) -> Result<(), MALError> {
     let (url, challenge, state) = client.get_auth_parts();
     let sp = Spinner::new(&Spinners::Arrow3, "Opening browser to log in...".into());
     let mut stdout = stdout();
